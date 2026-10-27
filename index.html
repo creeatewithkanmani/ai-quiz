@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Understanding Check</title>
+<style>
+  :root{--bg:#f6f7fb;--card:#fff;--text:#1d2433;--muted:#667085;--line:#e3e6ef;--accent:#4f46e5;--ok:#15803d;--okbg:#e7f6ec;--bad:#b91c1c;--badbg:#fdecec;--note:#fff7e0;--noteline:#f0d98a}
+  @media (prefers-color-scheme:dark){:root{--bg:#12141c;--card:#1b1e29;--text:#eceff6;--muted:#9aa3b5;--line:#2c3142;--accent:#818cf8;--ok:#4ade80;--okbg:#14301f;--bad:#f87171;--badbg:#3a1a1a;--note:#2e2814;--noteline:#6b5a1f}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;width:100%;max-width:560px}
+  h1{font-size:22px;margin:0 0 4px} .sub{color:var(--muted);margin:0 0 18px;font-size:14px}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
+  input,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font:inherit}
+  input:focus,textarea:focus{outline:2px solid var(--accent);border-color:transparent}
+  .note{background:var(--note);border:1px solid var(--noteline);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:16px}
+  .note code{background:rgba(0,0,0,.08);padding:2px 6px;border-radius:6px;font-weight:700}
+  button.primary{margin-top:18px;width:100%;padding:12px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+  .err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+  .top{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:10px}
+  .bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin-bottom:18px}
+  .bar div{height:100%;background:var(--accent);width:0;transition:width .3s}
+  .q{font-size:18px;font-weight:600;margin:0 0 14px}
+  .opt{display:block;width:100%;text-align:left;padding:12px 14px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit;cursor:pointer}
+  .opt:hover:not(:disabled){border-color:var(--accent)}
+  .opt.correct{background:var(--okbg);border-color:var(--ok)} .opt.wrong{background:var(--badbg);border-color:var(--bad)}
+  .fb{margin-top:6px;padding:12px 14px;border-radius:10px;font-size:14px}
+  .fb.ok{background:var(--okbg);color:var(--ok)} .fb.no{background:var(--badbg);color:var(--bad)}
+  .fb b{display:block;margin-bottom:2px}
+  .score{font-size:44px;font-weight:700;text-align:center;margin:10px 0 4px}
+  .center{text-align:center} .hidden{display:none}
+  .status{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="card">
+
+  <!-- LOGIN -->
+  <section id="login">
+    <h1>AI Understanding Check</h1>
+    <p class="sub">Log in to start the quiz.</p>
+    <label for="name">Name</label>
+    <input id="name" placeholder="Your name" autocomplete="off">
+    <label for="desc">Description</label>
+    <textarea id="desc" rows="2" placeholder="e.g. Student, Marketing team, Beginner"></textarea>
+    <label for="pw">Password</label>
+    <input id="pw" type="password" placeholder="Enter password">
+    <div class="err" id="err"></div>
+    <button class="primary" id="loginBtn">Log in &amp; start quiz</button>
+  </section>
+
+  <!-- QUIZ -->
+  <section id="quiz" class="hidden">
+    <div class="top"><span id="who"></span><span id="count"></span></div>
+    <div class="bar"><div id="prog"></div></div>
+    <p class="q" id="qtext"></p>
+    <div id="opts"></div>
+    <div id="fb"></div>
+    <button class="primary hidden" id="next">Next question</button>
+  </section>
+
+  <!-- RESULT -->
+  <section id="result" class="hidden center">
+    <h1>Quiz complete 🎉</h1>
+    <div class="score" id="score"></div>
+    <p class="sub" id="msg"></p>
+    <button class="primary" id="again">Log out</button>
+  </section>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+// ====== CONFIG ======
+const PASSWORD = "iamlearningtoday";            // common password for all users
+const QUIZ_NAME = "AI Understanding Check";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbxx3aPx6C23JgcpT0-seRtbumtjZN9-HAdb1gqaa9uu8rz2j-WIYPoL2VksYW_xXp4H/exec";
+
+const QUESTIONS = [
+  {q:"Which best describes machine learning?",o:["Programming explicit rules for every situation","Systems that learn patterns from data to make predictions","Storing large amounts of data in a database","Building faster computer hardware"],a:1,e:"ML learns patterns from data instead of following hand-written rules."},
+  {q:"What does 'LLM' stand for?",o:["Linear Logic Machine","Large Language Model","Learned Layer Matrix","Low-Level Memory"],a:1,e:"LLM means Large Language Model, a neural network trained on huge amounts of text."},
+  {q:"In supervised learning, the training data contains:",o:["Only inputs with no labels","Inputs paired with correct outputs (labels)","Only rewards and penalties","Random noise"],a:1,e:"Supervised learning trains on labeled examples of input and correct output."},
+  {q:"What is 'overfitting'?",o:["Good on training data but poor on new data","A model too small to learn anything","Training for too few hours","Using too little storage"],a:0,e:"The model memorizes its training data and fails to generalize to new data."},
+  {q:"What is a 'hallucination' in generative AI?",o:["The model crashing","Confident-sounding but false or made-up content","The model refusing to answer","The model generating only images"],a:1,e:"Generative models can produce plausible output that is simply not true."},
+  {q:"Which architecture underlies most modern LLMs?",o:["Decision tree","Transformer","K-means clustering","Support vector machine"],a:1,e:"Transformers use self-attention and power most modern language models."},
+  {q:"In reinforcement learning, an agent learns by:",o:["Reading labeled datasets","Grouping similar data points","Interacting with an environment for rewards or penalties","Copying another model's weights"],a:2,e:"The agent acts, gets feedback, and adjusts to maximize reward."},
+  {q:"What is a 'token' in an LLM?",o:["A password for the model","A unit of text such as a word or word piece","A payment credit","A type of network layer"],a:1,e:"Text is split into tokens, which the model reads and generates one at a time."},
+  {q:"Why can AI models show bias?",o:["They have personal opinions","They can reflect imbalances in their training data","Bias is added on purpose to every model","Only small models are biased"],a:1,e:"Models learn from human data, so skewed data leads to skewed outputs."},
+  {q:"What does 'fine-tuning' a model mean?",o:["Adjusting screen brightness","Further training a pre-trained model on specific data","Deleting parts of the model","Writing a better prompt"],a:1,e:"Fine-tuning specializes a pre-trained model using a smaller task-specific dataset."}
+];
+
+// ====== STATE & HELPERS ======
+const $ = id => document.getElementById(id);
+let user = null, idx = 0, score = 0;
+
+function show(id){ ["login","quiz","result"].forEach(s => $(s).classList.toggle("hidden", s !== id)); }
+
+// Send a row to the Google Sheet (Apps Script web app)
+function logToSheet(event, extra = {}) {
+  const payload = { event, name:user.name, description:user.desc, quiz:QUIZ_NAME,
+                    date:new Date().toISOString(), ...extra };
+  if (SHEET_URL.startsWith("PASTE_")) {
+    $("status").textContent = "⚠️ Google Sheet not connected yet (set SHEET_URL). Logged to console.";
+    console.log("LOG:", payload); return;
+  }
+  fetch(SHEET_URL, { method:"POST", mode:"no-cors",
+    headers:{ "Content-Type":"text/plain;charset=utf-8" }, body:JSON.stringify(payload) })
+    .then(() => $("status").textContent = "✅ Activity saved to Google Sheet")
+    .catch(() => $("status").textContent = "⚠️ Could not save to Google Sheet");
+}
+
+// ====== LOGIN ======
+function doLogin(){
+  const name = $("name").value.trim(), desc = $("desc").value.trim(), pw = $("pw").value;
+  if (!name || !desc) return $("err").textContent = "Please enter your name and description.";
+  if (pw !== PASSWORD) return $("err").textContent = "Incorrect password. Please check and try again.";
+  $("err").textContent = "";
+  user = { name, desc };
+  logToSheet("Login");
+  idx = 0; score = 0;
+  $("who").textContent = "👤 " + name;
+  show("quiz"); render();
+}
+$("loginBtn").onclick = doLogin;
+["name","pw"].forEach(id => $(id).addEventListener("keydown", e => e.key === "Enter" && doLogin()));
+
+// ====== QUIZ ======
+function render(){
+  const item = QUESTIONS[idx];
+  $("count").textContent = `Question ${idx+1} of ${QUESTIONS.length}`;
+  $("prog").style.width = (idx / QUESTIONS.length * 100) + "%";
+  $("qtext").textContent = item.q;
+  $("fb").innerHTML = ""; $("next").classList.add("hidden");
+  $("opts").innerHTML = "";
+  item.o.forEach((text, i) => {
+    const b = document.createElement("button");
+    b.className = "opt"; b.textContent = text;
+    b.onclick = () => answer(i);
+    $("opts").appendChild(b);
+  });
+}
+
+function answer(i){
+  const item = QUESTIONS[idx], btns = [...document.querySelectorAll(".opt")];
+  btns.forEach(b => b.disabled = true);
+  btns[item.a].classList.add("correct");
+  const right = i === item.a;
+  if (right) score++; else btns[i].classList.add("wrong");
+  $("fb").innerHTML = `<div class="fb ${right ? "ok" : "no"}"><b>${right ? "✅ Correct" : "❌ Incorrect"}</b>${item.e}</div>`;
+  $("next").textContent = idx === QUESTIONS.length - 1 ? "See result" : "Next question";
+  $("next").classList.remove("hidden");
+}
+
+$("next").onclick = () => {
+  if (++idx < QUESTIONS.length) return render();
+  $("prog").style.width = "100%";
+  $("score").textContent = `${score} / ${QUESTIONS.length}`;
+  $("msg").textContent = score >= 8 ? "Excellent AI understanding!" : score >= 5 ? "Good job, keep learning!" : "Nice start, try again to improve.";
+  show("result");
+  logToSheet("Quiz Completed", { score:`${score}/${QUESTIONS.length}` });
+};
+
+$("again").onclick = () => { $("pw").value = ""; $("status").textContent = ""; show("login"); };
+</script>
+</body>
+</html>
